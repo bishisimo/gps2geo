@@ -1,0 +1,1 @@
+/home/bishisimo/src/github/python/crawler/res
