@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"github.com/bishisimo/errlog"
 	geo "github.com/kellydunn/golang-geo"
+	"gps2geo/utils"
 	"io/ioutil"
+	"math"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -31,7 +34,7 @@ func (self *Areas) AddProvince(code int, province *Province) {
 func (self *Areas) AddCity(code int, city *City) {
 	codeProvince := code / 10000 * 10000
 	province := self.Provinces[codeProvince]
-	province.Add(code/100*100, city)
+	province.Add(code, city)
 }
 func (self *Areas) AddDistrict(code int, district *District) {
 	codeProvince := code / 10000 * 10000
@@ -40,21 +43,25 @@ func (self *Areas) AddDistrict(code int, district *District) {
 }
 
 func (self Areas) WhereGps(lat float64, lng float64) int {
-	point := geo.NewPoint(lat, lng)
+	pointP := geo.NewPoint(lat, lng)
 	c := make(chan int, len(self.Provinces))
 	wg := sync.WaitGroup{}
+	var cityRecode *City
+	var provinceRecode *Province
 	for _, province := range self.Provinces {
 		wg.Add(1)
 		go func(province *Province) {
-			if province.ContainsPoint(point) {
+			if province.ContainsPoint(pointP) {
+				provinceRecode = province
 				for _, city := range province.Cities {
 					wg.Add(1)
 					go func(city *City) {
-						if city.ContainsPoint(point) {
+						if city.ContainsPoint(pointP) {
+							cityRecode = city
 							for _, district := range city.Districts {
 								wg.Add(1)
 								go func(district *District) {
-									if district.ContainsPoint(point) {
+									if district.ContainsPoint(pointP) {
 										c <- district.Adcode
 									}
 									wg.Done()
@@ -69,31 +76,71 @@ func (self Areas) WhereGps(lat float64, lng float64) int {
 		}(province)
 	}
 	wg.Wait()
+	print(provinceRecode)
+	if len(c) > 0 {
+		return <-c
+	} else {
+		adcode := self.WhereGpsInParticular(pointP)
+		if adcode != 0 {
+			return adcode
+		} else if cityRecode != nil {
+			adcode = cityRecode.WhereDistrictInApproximately(lat, lng)
+			return adcode
+		} else {
+			return 0
+		}
+	}
+}
+
+func (self Areas) WhereGpsInParticular(pointP *geo.Point) int {
+	c := make(chan int, len(self.Provinces))
+	wg := sync.WaitGroup{}
+	for _, province := range self.Provinces {
+		wg.Add(1)
+		go func(province *Province) {
+			for _, city := range province.Cities {
+				wg.Add(1)
+				go func(city *City) {
+					for _, district := range city.Districts {
+						wg.Add(1)
+						go func(district *District) {
+							if district.ContainsPoint(pointP) {
+								c <- district.Adcode
+							}
+							wg.Done()
+						}(district)
+					}
+					//}
+					wg.Done()
+				}(city)
+			}
+			wg.Done()
+		}(province)
+	}
+	wg.Wait()
 	if len(c) == 1 {
 		return <-c
-	} else if len(c) > 1 {
-		return len(c)
 	} else {
-		return 0
+		return len(c)
 	}
 }
 
 func NewProvince(properties *Properties, polygons *[][]*geo.Polygon) *Province {
 	return &Province{
-		Cities:      make(map[int]*City),
-		Polygon:     polygons,
-		Adcode:      properties.Adcode,
-		Name:        properties.Name,
-		ChildrenNum: properties.ChildrenNum,
+		Cities:       make(map[int]*City),
+		MultiPolygon: polygons,
+		Adcode:       properties.Adcode,
+		Name:         properties.Name,
+		ChildrenNum:  properties.ChildrenNum,
 	}
 }
 
 type Province struct {
-	Cities      map[int]*City
-	Polygon     *[][]*geo.Polygon
-	Adcode      int
-	Name        string
-	ChildrenNum int
+	Cities       map[int]*City
+	MultiPolygon *[][]*geo.Polygon
+	Adcode       int
+	Name         string
+	ChildrenNum  int
 }
 
 func (self *Province) Add(code int, city *City) {
@@ -102,28 +149,31 @@ func (self *Province) Add(code int, city *City) {
 func (self *Province) AddCity(code int, city *City) {
 	city.ProvinceName = self.Name
 	if self.ChildrenNum == 0 {
-		city.Polygon = self.Polygon
+		city.MultiPolygon = self.MultiPolygon
 	}
 	self.Cities[code] = city
 }
 func (self *Province) AddDistrict(code int, district *District) {
 	codeCity := code / 100 * 100
 	city := self.Cities[codeCity]
-	//if city == nil {
-	//	fmt.Println(code)
-	//	city = self.Cities[code]
-	//}
+	if city == nil {
+		city = self.Cities[code]
+	}
 	if city == nil {
 		city = self.Cities[code/10000*10000]
 	}
 	city.Add(code, district)
 }
 func (self Province) ContainsPoint(pointP *geo.Point) bool {
-	for _, polygon := range *self.Polygon {
-		for _, p1 := range polygon {
+	isIn := false
+	for _, p0 := range *self.MultiPolygon {
+		for i, p1 := range p0 {
 			if p1.Contains(pointP) {
-				return true
+				isIn = i == 0
 			}
+		}
+		if isIn {
+			return isIn
 		}
 	}
 	return false
@@ -131,14 +181,14 @@ func (self Province) ContainsPoint(pointP *geo.Point) bool {
 
 func (self Province) ShowPolygon() {
 	fmt.Printf("%v:\n", self.Name)
-	fmt.Printf("shape:[%v,%v]:\n", len(*self.Polygon), len((*self.Polygon)[0]))
-	fmt.Printf("data:%+v\n", *self.Polygon)
+	fmt.Printf("shape:[%v,%v]:\n", len(*self.MultiPolygon), len((*self.MultiPolygon)[0]))
+	fmt.Printf("data:%+v\n", *self.MultiPolygon)
 }
 
 func NewCity(properties *Properties, polygons *[][]*geo.Polygon) *City {
 	return &City{
 		Districts:    make(map[int]*District),
-		Polygon:      polygons,
+		MultiPolygon: polygons,
 		ProvinceName: "",
 		Adcode:       properties.Adcode,
 		Name:         properties.Name,
@@ -148,7 +198,7 @@ func NewCity(properties *Properties, polygons *[][]*geo.Polygon) *City {
 
 type City struct {
 	Districts    map[int]*District
-	Polygon      *[][]*geo.Polygon
+	MultiPolygon *[][]*geo.Polygon
 	ProvinceName string
 	Adcode       int
 	Name         string
@@ -159,32 +209,63 @@ func (self *City) Add(code int, district *District) {
 	self.AddDistrict(code, district)
 }
 func (self *City) AddDistrict(code int, district *District) {
-	//defer func() {
-	//	if err:=recover();err!=nil{
-	//		fmt.Printf("AddDistrict:%+v\n",self)
-	//	}
-	//}()
 	district.ProvinceName = self.ProvinceName
 	district.CityName = self.Name
 	if self.ChildrenNum == 0 {
-		district.Polygon = self.Polygon
+		district.MultiPolygon = self.MultiPolygon
 	}
 	self.Districts[code] = district
 }
 func (self City) ContainsPoint(pointP *geo.Point) bool {
-	for _, polygon := range *self.Polygon {
-		for _, p1 := range polygon {
+	isIn := false
+	for _, p0 := range *self.MultiPolygon {
+		for i, p1 := range p0 {
 			if p1.Contains(pointP) {
-				return true
+				isIn = i == 0
 			}
+		}
+		if isIn {
+			return isIn
 		}
 	}
 	return false
 }
+
+func (self City) WhereDistrictInApproximately(lat float64, lng float64) int {
+	for i := 3; i <= 10; i++ {
+		offset := math.Pow(2, float64(i)) / math.Pow(10, 6)
+		p := geo.NewPoint(lat-offset, lng)
+		for _, districts := range self.Districts {
+			if districts.ContainsPoint(p) {
+				return districts.Adcode
+			}
+		}
+		p = geo.NewPoint(lat+offset, lng)
+		for _, districts := range self.Districts {
+			if districts.ContainsPoint(p) {
+				return districts.Adcode
+			}
+		}
+		p = geo.NewPoint(lat, lng-offset)
+		for _, districts := range self.Districts {
+			if districts.ContainsPoint(p) {
+				return districts.Adcode
+			}
+		}
+		p = geo.NewPoint(lat, lng+offset)
+		for _, districts := range self.Districts {
+			if districts.ContainsPoint(p) {
+				return districts.Adcode
+			}
+		}
+	}
+	return 0
+}
+
 func NewDistrict(properties *Properties, polygons *[][]*geo.Polygon) *District {
 	return &District{
 		Name:         properties.Name,
-		Polygon:      polygons,
+		MultiPolygon: polygons,
 		ProvinceName: "",
 		Adcode:       properties.Adcode,
 		CityName:     "",
@@ -192,7 +273,7 @@ func NewDistrict(properties *Properties, polygons *[][]*geo.Polygon) *District {
 }
 
 type District struct {
-	Polygon      *[][]*geo.Polygon
+	MultiPolygon *[][]*geo.Polygon
 	ProvinceName string
 	CityName     string
 	Adcode       int
@@ -200,11 +281,15 @@ type District struct {
 }
 
 func (self District) ContainsPoint(pointP *geo.Point) bool {
-	for _, polygon := range *self.Polygon {
-		for _, p1 := range polygon {
+	isIn := false
+	for _, p0 := range *self.MultiPolygon {
+		for i, p1 := range p0 {
 			if p1.Contains(pointP) {
-				return true
+				isIn = i == 0
 			}
+		}
+		if isIn {
+			return isIn
 		}
 	}
 	return false
@@ -214,11 +299,12 @@ var areas *Areas
 var once sync.Once
 
 func GetAreas() *Areas {
-	//var once sync.Once
-
 	once.Do(func() {
 		areas = NewAreas()
-		dirPath := "res"
+		dirPath := os.Getenv("RES_DIR")
+		if dirPath == "" {
+			dirPath = "res"
+		}
 		files, err := ioutil.ReadDir(dirPath)
 		if errlog.Debug(err) {
 			return
@@ -241,14 +327,11 @@ func GetAreas() *Areas {
 				citiesPath[code] = filePath
 			}
 		}
-		fmt.Printf("%v\n", nationPath)
+		utils.Println("GeoJson init success")
 		//构造省
 		features := NewInfoFromJsonFile(nationPath).Features
 
 		for _, pio := range features {
-			if pio.Properties.Adcode == 0 {
-				fmt.Println("Adcode", nationPath, pio.Properties.Name)
-			}
 			province := NewProvince(&pio.Properties, GeoPolygonNest(pio))
 			areas.AddProvince(pio.Properties.Adcode, province)
 			if strings.Contains(pio.Properties.Name, "市") {
@@ -270,9 +353,6 @@ func GetAreas() *Areas {
 		for _, cityPath := range citiesPath {
 			features := NewInfoFromJsonFile(cityPath).Features
 			for _, pio := range features {
-				if pio.Properties.Adcode == 0 {
-					fmt.Println("Adcode", cityPath, pio.Properties.Name)
-				}
 				district := NewDistrict(&pio.Properties, GeoPolygonNest(pio))
 				areas.AddDistrict(pio.Properties.Adcode, district)
 			}
