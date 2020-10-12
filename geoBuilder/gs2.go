@@ -1,25 +1,23 @@
 ////@Time : 2020/9/23 上午9:45
 ////@Author : bishisimo
 package geoBuilder
-//
+
 //import (
 //	"fmt"
 //	"github.com/golang/geo/s2"
 //)
 //
-//func gps2geo(info Info) {
+//func S2GeoPolygon(pio *PIO) {
 //	s2ps:=make([]s2.Point,0)
-//	area:=info.Features[2]
-//	coordinates:=area.Geometry.Coordinates[0][0]
-//	fmt.Println(area.Properties.Name)
+//	coordinates:=pio.Geometry.Coordinates[0][0]
+//	fmt.Println(pio.Properties.Name)
 //	for i:=0;i<len(coordinates);i++{
 //		//ll:=s2.LatLng{
 //		//	Lat: s1.Angle(coordinates[i][1])*s1.Degree,
 //		//	Lng: s1.Angle(coordinates[i][0])*s1.Degree,
 //		//}
 //		//s2ps = append(s2ps, s2.PointFromLatLng(s2.LatLngFromDegrees(coordinates[i][1]*s1.Degree.Radians(),coordinates[i][0]*s1.Degree.Radians())))
-//		fmt.Println(s2.LatLngFromDegrees(coordinates[i][1],coordinates[i][0]))
-//		s2ps = append(s2ps, s2.PointFromLatLng(s2.LatLngFromDegrees(coordinates[i][1],coordinates[i][0])))
+//		s2ps = append(s2ps, s2.Point{})
 //	}
 //	loop:=s2.LoopFromPoints(s2ps)
 //	//fmt.Printf("%+v", loop)

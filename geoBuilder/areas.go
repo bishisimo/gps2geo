@@ -47,12 +47,12 @@ func (self Areas) WhereGps(lat float64, lng float64) int {
 	c := make(chan int, len(self.Provinces))
 	wg := sync.WaitGroup{}
 	var cityRecode *City
-	var provinceRecode *Province
+	//var provinceRecode *Province
 	for _, province := range self.Provinces {
 		wg.Add(1)
 		go func(province *Province) {
 			if province.ContainsPoint(pointP) {
-				provinceRecode = province
+				//provinceRecode = province
 				for _, city := range province.Cities {
 					wg.Add(1)
 					go func(city *City) {
@@ -76,7 +76,6 @@ func (self Areas) WhereGps(lat float64, lng float64) int {
 		}(province)
 	}
 	wg.Wait()
-	print(provinceRecode)
 	if len(c) > 0 {
 		return <-c
 	} else {
@@ -332,10 +331,10 @@ func GetAreas() *Areas {
 		features := NewInfoFromJsonFile(nationPath).Features
 
 		for _, pio := range features {
-			province := NewProvince(&pio.Properties, GeoPolygonNest(pio))
+			province := NewProvince(&pio.Properties, GeoPolygonNest(&pio))
 			areas.AddProvince(pio.Properties.Adcode, province)
 			if strings.Contains(pio.Properties.Name, "市") {
-				city := NewCity(&pio.Properties, GeoPolygonNest(pio))
+				city := NewCity(&pio.Properties, GeoPolygonNest(&pio))
 				areas.AddCity(pio.Properties.Adcode, city)
 			}
 		}
@@ -343,17 +342,15 @@ func GetAreas() *Areas {
 		for _, provincePath := range provincesPaths {
 			features := NewInfoFromJsonFile(provincePath).Features
 			for _, pio := range features {
-				city := NewCity(&pio.Properties, GeoPolygonNest(pio))
+				city := NewCity(&pio.Properties, GeoPolygonNest(&pio))
 				areas.AddCity(pio.Properties.Adcode, city)
 			}
 		}
-		//fmt.Printf("%+v", areas.Provinces)
-
 		//构造区
 		for _, cityPath := range citiesPath {
 			features := NewInfoFromJsonFile(cityPath).Features
 			for _, pio := range features {
-				district := NewDistrict(&pio.Properties, GeoPolygonNest(pio))
+				district := NewDistrict(&pio.Properties, GeoPolygonNest(&pio))
 				areas.AddDistrict(pio.Properties.Adcode, district)
 			}
 		}

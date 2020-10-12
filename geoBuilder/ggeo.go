@@ -6,7 +6,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 )
 
-func GeoPolygon(pio PIO) *geo.Polygon {
+func GeoPolygon(pio *PIO) *geo.Polygon {
 	//info:=getInfo()
 	ps := make([]*geo.Point, 0)
 	coordinates := pio.Geometry.Coordinates[0][0]
@@ -16,7 +16,7 @@ func GeoPolygon(pio PIO) *geo.Polygon {
 	polygon := geo.NewPolygon(ps)
 	return polygon
 }
-func GeoPolygonNest(pio PIO) *[][]*geo.Polygon {
+func GeoPolygonNest(pio *PIO) *[][]*geo.Polygon {
 	polygons := make([][]*geo.Polygon, 0)
 	coordinates := pio.Geometry.Coordinates
 
