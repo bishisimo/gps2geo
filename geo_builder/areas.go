@@ -62,7 +62,7 @@ func (self Areas) WhereGps(lat float64, lng float64) int {
 								wg.Add(1)
 								go func(district *District) {
 									if district.ContainsPoint(pointP) {
-										c <- district.Adcode
+										c <- district.AdCode
 									}
 									wg.Done()
 								}(district)
@@ -104,7 +104,7 @@ func (self Areas) WhereGpsInParticular(pointP *geo.Point) int {
 						wg.Add(1)
 						go func(district *District) {
 							if district.ContainsPoint(pointP) {
-								c <- district.Adcode
+								c <- district.AdCode
 							}
 							wg.Done()
 						}(district)
@@ -236,25 +236,25 @@ func (self City) WhereDistrictInApproximately(lat float64, lng float64) int {
 		p := geo.NewPoint(lat-offset, lng)
 		for _, districts := range self.Districts {
 			if districts.ContainsPoint(p) {
-				return districts.Adcode
+				return districts.AdCode
 			}
 		}
 		p = geo.NewPoint(lat+offset, lng)
 		for _, districts := range self.Districts {
 			if districts.ContainsPoint(p) {
-				return districts.Adcode
+				return districts.AdCode
 			}
 		}
 		p = geo.NewPoint(lat, lng-offset)
 		for _, districts := range self.Districts {
 			if districts.ContainsPoint(p) {
-				return districts.Adcode
+				return districts.AdCode
 			}
 		}
 		p = geo.NewPoint(lat, lng+offset)
 		for _, districts := range self.Districts {
 			if districts.ContainsPoint(p) {
-				return districts.Adcode
+				return districts.AdCode
 			}
 		}
 	}
@@ -266,7 +266,7 @@ func NewDistrict(properties *Properties, polygons *[][]*geo.Polygon) *District {
 		Name:         properties.Name,
 		MultiPolygon: polygons,
 		ProvinceName: "",
-		Adcode:       properties.Adcode,
+		AdCode:       properties.Adcode,
 		CityName:     "",
 	}
 }
@@ -275,7 +275,7 @@ type District struct {
 	MultiPolygon *[][]*geo.Polygon
 	ProvinceName string
 	CityName     string
-	Adcode       int
+	AdCode       int
 	Name         string
 }
 
