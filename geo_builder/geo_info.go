@@ -1,6 +1,6 @@
 //@Time : 2020/9/23 上午9:43
 //@Author : bishisimo
-package geoBuilder
+package geo_builder
 
 import (
 	"encoding/json"
@@ -10,8 +10,8 @@ import (
 )
 
 type Info struct {
-	Type string    `json:"type"`
-	Features []PIO `json:"features"`
+	Type     string `json:"type"`
+	Features []PIO  `json:"features"`
 }
 
 func NewInfo() *Info {
@@ -20,6 +20,7 @@ func NewInfo() *Info {
 		Features: make([]PIO, 0),
 	}
 }
+
 type PIO struct {
 	Type       string     `json:"type"`
 	Properties Properties `json:"properties"`
@@ -32,9 +33,10 @@ type Parent struct {
 
 func NewParent() *Parent {
 	return &Parent{
-		Adcode:0,
+		Adcode: 0,
 	}
 }
+
 type Properties struct {
 	Adcode          int    `json:"adcode"`
 	Name            string `json:"name"`
@@ -60,30 +62,31 @@ func NewProperties() *Properties {
 		Parent:          *NewParent(),
 	}
 }
+
 type Geometry struct {
-	Type string             `json:"type"`
+	Type        string      `json:"type"`
 	Coordinates [][][]Point `json:"coordinates"`
 }
 
 func NewGeometry() *Geometry {
 	return &Geometry{
-		Type: "",
-		Coordinates: make([][][]Point,0),
+		Type:        "",
+		Coordinates: make([][][]Point, 0),
 	}
 }
 
-type Point =[2]float64
+type Point = [2]float64
 
-func  NewInfoFromJsonFile(filePath string) *Info {
-	fp,err:=os.Open(filePath)
+func NewInfoFromJsonFile(filePath string) *Info {
+	fp, err := os.Open(filePath)
 	if errlog.Debug(err) {
 		fmt.Println("NewInfoFromJsonFile io err")
 	}
 	if fp != nil {
 		defer fp.Close()
 	}
-	info:= NewInfo()
-	decoder:=json.NewDecoder(fp)
+	info := NewInfo()
+	decoder := json.NewDecoder(fp)
 	_ = decoder.Decode(&info)
 	return info
 }

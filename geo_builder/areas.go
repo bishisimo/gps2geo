@@ -1,6 +1,6 @@
 //@Time : 2020/9/23 上午10:00
 //@Author : bishisimo
-package geoBuilder
+package geo_builder
 
 import (
 	"fmt"

@@ -1,6 +1,6 @@
 //@Time : 2020/9/23 上午9:45
 //@Author : bishisimo
-package geoBuilder
+package geo_builder
 
 import (
 	geo "github.com/kellydunn/golang-geo"
